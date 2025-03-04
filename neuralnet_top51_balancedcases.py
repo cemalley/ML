@@ -39,7 +39,13 @@ top51 = top51.to_pandas()
 
 # Keep only columns in top_chemicals + covariates
 # Get the list of columns to keep
-columns_to_keep = top51["CHEM_ID_NEW"].tolist() + ["PARENT_SAMPLE_NAME", "LateAMD_person","edu",'trt','smoked','BMI','age','male','TIME_POINT']
+#columns_to_keep = top51["CHEM_ID_NEW"].tolist() + ["PARENT_SAMPLE_NAME", "LateAMD_person","edu",'trt','smoked','BMI','age','male','TIME_POINT']
+
+# --- for only metabolites:
+columns_to_keep = top51["CHEM_ID_NEW"].tolist() + ["PARENT_SAMPLE_NAME", "LateAMD_person"]    
+
+# for only clinical variables:
+#columns_to_keep = ["PARENT_SAMPLE_NAME","LateAMD_person","edu",'trt','smoked','BMI','age','male','TIME_POINT']
 
 # Subset the data
 data = data[[col for col in columns_to_keep if col in data.columns]]
@@ -59,7 +65,7 @@ y = data[target_column]
 # Group-based Train/Test Split
 # -------------------------
 # Use GroupShuffleSplit so that the same patient (PARENT_SAMPLE_NAME) doesn't appear in both sets
-gss = GroupShuffleSplit(n_splits=1, test_size=0.3, random_state=42)
+gss = GroupShuffleSplit(n_splits=5, test_size=0.3, random_state=42)
 train_idx, test_idx = next(gss.split(X, y, groups=patient_ids))
 X_train = X.iloc[train_idx]
 X_test = X.iloc[test_idx]
@@ -100,7 +106,10 @@ importance_df.sort_values(by="Importance", ascending=False, inplace=True)
 # Merge with the chemical names for reference
 chemical_names = pl.read_csv('C:/Users/malleyce/Documents/Metabolomics/AREDS/chemical_names.csv').to_pandas()
 merged_df = importance_df.merge(chemical_names, left_on='Feature', right_on='CHEM_ID_NEW', how='left')
-merged_df.to_csv('C:/Users/malleyce/Documents/Metabolomics/AREDS/Release4/ML_models/NeuralNetwork_permutation_importance_using_top51_withclinc_balancedclasses_groupshufflesplit.csv', index=False)
+#merged_df.to_csv('C:/Users/malleyce/Documents/Metabolomics/AREDS/Release4/ML_models/NeuralNetwork_permutation_importance_using_top51_withclinc_balancedclasses_groupshufflesplit.csv', index=False)
+merged_df.to_csv('C:/Users/malleyce/Documents/Metabolomics/AREDS/Release4/ML_models/NeuralNetwork_permutation_importance_using_top51_noclinc_balancedclasses_groupshufflesplit.csv', index=False)
+merged_df.to_csv('C:/Users/malleyce/Documents/Metabolomics/AREDS/Release4/ML_models/NeuralNetwork_permutation_importance_using_onlyclinc_balancedclasses_groupshufflesplit.csv', index=False)
+
 
 # -------------------------
 # Model Evaluation
@@ -109,6 +118,8 @@ merged_df.to_csv('C:/Users/malleyce/Documents/Metabolomics/AREDS/Release4/ML_mod
 y_probs = nn.predict_proba(X_test)[:, 1]
 auc = roc_auc_score(y_test, y_probs)
 print(f"AUC Score: {auc:.4f}") # 0.8395 with both top 51 and the clinical vars
+#  0.7106 with only 51 metabolites
+# 0.8247 with only clinical variables
 
 # Get predicted labels and compute confusion matrix
 y_pred = nn.predict(X_test)
@@ -120,10 +131,21 @@ print(conf_matrix)
 #[[1322  421]
 # [  40  142]]
 
+# with only metabolites and GSS:
+# [[1164  579]
+#[  68  114]]
+
+# with only clinical variables and GSS:
+#[[1250  493]
+#[  33  149]]
+
 # Accuracy
 accuracy = accuracy_score(y_test, y_pred)
 print(f"Accuracy: {accuracy:.4f}") # 0.7605 with both top 51 and the clinical vars
 
+# 0.6639 with only metabolites
+
+# 0.7268 with only clinical variables.
 
 # Compute ROC curve points
 fpr, tpr, _ = roc_curve(y_test, y_probs)
